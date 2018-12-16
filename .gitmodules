@@ -1,0 +1,21 @@
+[submodule "MavPPM-EMB-PPM"]
+	path = MavPPM-EMB-PPM
+	url = https://github.com/CmST0us/MavPPM-EMB-PPM.git
+[submodule "MavPPM-EMB-CommLayer"]
+	path = MavPPM-EMB-CommLayer
+	url = https://github.com/CmST0us/MavPPM-EMB-CommLayer.git
+[submodule "MavPPM-EMB-APP"]
+	path = MavPPM-EMB-APP
+	url = https://github.com/CmST0us/MavPPM-EMB-APP.git
+[submodule "MavPPM-iOS-CommLayer"]
+	path = MavPPM-iOS-CommLayer
+	url = https://github.com/CmST0us/MavPPM-iOS-CommLayer.git
+[submodule "MavPPM-iOS-GravityControlLogic"]
+	path = MavPPM-iOS-GravityControlLogic
+	url = https://github.com/CmST0us/MavPPM-iOS-GravityControlLogic.git
+[submodule "MavPPM-iOS-APP"]
+	path = MavPPM-iOS-APP
+	url = https://github.com/CmST0us/MavPPM-iOS-APP.git
+[submodule "MavPPM-mavlink"]
+	path = MavPPM-mavlink
+	url = https://github.com/CmST0us/MavPPM-mavlink.git
