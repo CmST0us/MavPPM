@@ -19,3 +19,6 @@
 [submodule "MavPPM-mavlink"]
 	path = MavPPM-mavlink
 	url = https://github.com/CmST0us/MavPPM-mavlink.git
+[submodule "Vendor/SocketKit"]
+	path = Vendor/SocketKit
+	url = https://github.com/CmST0us/SocketKit.git
