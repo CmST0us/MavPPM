@@ -20,5 +20,4 @@ git submodule update --init --recursive
 * MavPPM-iOS-APP iOS APP
 * MavPPM-iOS-GravityControlLogic iOS APP 重力感应控制逻辑层
 * MavPPM-mavlink MavPPM 工程使用的mavlink协议 包含C库和Objective-C framework
-
-
+* Vendor 使用到的第三方库
