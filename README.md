@@ -10,6 +10,7 @@ git submodule update --init --recursive
 
 初始化
 
+冒烟测试通过，此节点后，master分支每次commit必须为release版本
 
 # 系统组件
 
