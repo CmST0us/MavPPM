@@ -1,7 +1,7 @@
 # TODO
 
 - [ ] replace: Usbmuxd -> usbmuxd
-- [ ] 
+- [ ] replace: mavlink -> MAVLink
 
 # 基于移动端重力感应的无人机遥控系统
 
@@ -35,19 +35,22 @@
 ## 设计依据
 
 ### TCP通信
-【reference TCP， wiki， 知网】
+TCP协议，即传输控制协议，是一种面向连接的、可靠的、基于字节流的传输层通信协议。应用层向TCP层发送用于网间传输的、用8位字节表示的数据流，然后TCP把数据流分割成适当长度的报文段（通常受该计算机连接的网络的数据链路层的最大传输单元（MTU）的限制）。之后TCP把结果包传给IP层，由它来通过网络将包传送给接收端实体的TCP层。TCP为了保证不发生丢包，就给每个包一个序号，同时序号也保证了传送到接收端实体的包的按序接收。然后接收端实体对已成功收到的包发回一个相应的确认（ACK）；如果发送端实体在合理的往返时延（RTT）内未收到确认，那么对应的数据包就被假设为已丢失将会被进行重传。TCP用一个校验和函数来检验数据是否有错误；在发送和接收时都要计算校验和。[^reference_tcp]
 
 ### usbmuxd通信
 
-usbmuxd是【reference usbmuxd】 ，此通信方式可以将TCP数据包转发至USB，与iOS设备通信。即可以实现使用数据线与iOS设备指定端口通信的能力。
+usbmuxd是一个可以在USB链路上复用连接的系统，它可以提供一个类似TCP通信的模型，用于处理主机设备与移动设备特定端口间的通信。[^reference_usbmuxd]此通信方式可以将TCP数据包转发至USB，与iOS设备通信。即可以实现使用数据线与iOS设备指定端口通信的能力。
 
 usbmuxd通过IPC，即进程间通信的方式与请求者进行数据交换，在Unix体系系统中，通过创建unix套接字提供服务。请求方可以向usbmuxd服务发送两种命令，一是设备监听枚举，二是目标连接。一旦usbmuxd与请求方握手成功并进入一种命令模式，请求方必须向usbmuxd服务创建一个新的连接才能发送另一个命令。usbmuxd服务在监听模式下，会向请求方回调当前插入的设备与拔出的设备。在目标连接模式下，请求方向usbmuxd服务发送连接请求，一旦连接建立，请求方向usbmuxd发送的所有数据都会转发到目标iOS设备的指定端口。
+
+在usbmuxd通信模型中，类比TCP通信方式，请求方作为客户端的角色，而目标设备作为服务器的角色。故在实现此通信方式时，我们需要在移动设备上运行一个TCP服务器。
 
 #### usbmuxd协议
 usbmuxd协议包由两部分组成：包头与负载。其中包头为二进制格式，负载为xml格式的字符串。
 usbmuxd包头由4部分组成，以网络字节序编码:
 
 **UsbmuxdHeader**
+
 字段|长度|备注
 ----|----|----
 长度|4字节|包括包头长度
@@ -55,6 +58,7 @@ usbmuxd包头由4部分组成，以网络字节序编码:
 消息类型|4字节|参见UsbmuxdMessageType，当版本为1时，消息类型需为plist消息
 
 **UsbmuxdMessageType**
+
 字段|值
 ----|---
 请求结果|1
@@ -68,7 +72,7 @@ plist消息|8
 
 负载使用的plist格式类似于xml，是Apple的属性列表，可用于序列化储存数字、布尔、字符串、字典、数组等。【reference plist】
 
-一个plist格式的请求也需要带有UsbmuxdHeader包头，其中包头版本为1，消息类型为8. 负载的属性列表必须包含以下键值对。
+一个plist格式的请求也需要带有usbmuxdHeader包头，其中包头版本为1，消息类型为8. 负载必须包含以下键值对。
 
 键|值类型|备注
 --|------|----
@@ -83,14 +87,80 @@ Result|请求结果
 Attach|设备接入
 Detached|设备拔出
 
-对于不同的消息类型，在负载中应有消息对应的参数键值对。
+包含请求结果的数据包也由usbmuxdHeader包头与负载组成，其中包头版本为1，消息类型为8.负载包含的键值对满足一下格式：
+
+键|值类型|备注
+--|------|----
+MessageType|字符串|值为Result
+Number|整数|请求结果
+
+其中返回结果一般有一下几种：
+字段|备注
+---|---
+0|请求成功
+1|请求错误
+2|设备错误
+3|连接拒接
+5|请求包长度错误
+6|版本错误
+
+
 
 #### 设备监听请求
 
+请求方可以usbmuxd服务请求监听设备插拔状态。请求包负载中MessageType的值为Listen。usbmuxd收到监听请求包后返回包含请求结果的usbmuxd包头与负载。
+
+当请求方成功请求设备监听服务时，每当usbmuxd服务监测到有设备接入，就会向请求方发送包含接入设备基本信息的数据包。此数据包也由包头与负载组成。负载包含的键值对如下表所示：
+
+键|值类型|备注
+--|------|----
+DeviceID|整数|表示连接设备的ID
+Properties|字典|连接设备的设备信息
+
+Properties字典包含一下键值对：
+键|值类型|备注
+--|------|----
+ProductID|整数|设备产品ID
+SerialNumber|字符串|设备序列号
+LocationID|整数|设备位置ID
+
+如果后续逻辑中，需要连接到接入的设备，我们只需要关注DeviceID即可。
+
+同理，当设备被拔出后，usbmuxd服务也会向请求方发送一个包含拔出设备DeviceID的数据包，请求方根据此DeviceID释放对应资源即可。
+
+为了保证DeviceID不重复，usbmuxd服务在其生命周期内保证了DeviceID只增不减。
+
 #### 设备连接请求
 
+请求方可以向usbmuxd发送连接请求，以连接到目标设备的指定端口。连接请求除了需要设置请求负载MessageType值为Connect外，还应包含几个额外参数。
+
+键|值类型|备注
+--|------|----
+DeviceID|整数|连接设备ID
+PortNumber|整数|连接设备端口(网络字节序)
+
+DeviceID为接入的设备的ID，PortNumber为需要连接到的端口号。其中PortNumber应为网络字节序，即最高有效位在前。
+
+一旦连接请求返回成功，后续请求方向usbmuxd服务发送的所有数据都会被转发到目标设备中。
+
 ### mavlink协议
-【reference mavlink， wiki， 知网】
+MAVLink(Micro Air Vehicle Link)通信协议最早是由苏黎世联邦理工学园计算机视觉与几何实验组的Lorenz Meier在2009年发布的一款轻量级的开源通信协议，它遵守LGPL(Lesser General Public License)开源协议。MAVLink通信协议是在串口通信的基础上一种更高层的开源通信协议，他是微型飞行器与地面站之间通讯，以及与微型飞行器之间常用的通讯协议。目前该协议已经在APM、PX4、、PIXHAWK等飞控平台进行了大量的测试，并且很好得应用在各大飞控平台。[^reference_mavlink]
+MAVLink协议同时兼顾了速度与安全性，一帧有限MAVLink数据包最小为8字节，最大为263字节。下图为MAVLink帧格式：
+【MAVLink协议帧】
+
+字段|长度（字节）|值域|作用
+---|----------|----|---
+STX|1|0xFE(1.0版本)，0x55(0.9版本)|表示帧开始
+LEN|1|[0,255]|负载长度
+SEQ|1|[0,255]|用于计算信道质量
+SYS|1|[1,255]|表示发送此帧设备系统标号
+COMP|1|[0,255]|表示发送此帧设备单元编号
+MSG|1|[0,255]|负载消息类型编号
+PAYLOAD|n|n字节，n < 255|负载数据
+CRC|2|Difference|16位CRC校验部分
+
+帧头部分使用0xFE和0x55作为帧开始标志，同时标示此MAVLink帧版本，在本系统中，使用1.0版本的MAVLink协议，即帧开始标志为0xFE。
+在MAVLink消息中，通过MSG字段驱动PAYLOAD中的不同的消息类型。
 ### PPM协议
 【reference PPM， wiki， 知网】
 ### iOS系统
@@ -178,17 +248,22 @@ usbmuxd通信方式【reference wiki】，满足本系统对成本和可靠性�
 # 理论分析及设计
 
 ## 理论计算与分析
-
 ### 重力感应控制原理
-### Usbmuxd通信原理
-### 串口通信原理
 
 
 ## 系统、配件、程序设计
 ### 系统架构设计
+
+
 ### 数据流设计
+
+
 ### 通信协议设计
+
+
 ### 硬件设计
+
+
 
 ### 通信层代码设计
 #### 通信接口
@@ -242,6 +317,9 @@ friendlyarm NanoPi NEO采用了allwinner H3 SOC，可以运行debian, Ubuntu等�
 
 # 参考文献
 
+[^reference_tcp]: https://zh.wikipedia.org/wiki/传输控制协议
+[^reference_usbmuxd]: https://www.theiphonewiki.com/wiki/Usbmux
+[^reference_mavlink]: http://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CMFD&dbname=CMFD201901&filename=1018895956.nh&uid=WEEvREdxOWJmbC9oM1NjYkZCbDdrdTViZFpmU2g3cU5GaktBeldYbm1lK24=$R1yZ0H6jyaa0en3RxVUd8df-oHi7XMMDo7mtKT6mSmEvTuk11l2gFA!!&v=MTI1Njg3RGgxVDNxVHJXTTFGckNVUkxPZlpPUm5GeXpoVWJ6TVZGMjZGcnV4RzlqSnFaRWJQSVI4ZVgxTHV4WVM=
 --------
 
 # 附录
