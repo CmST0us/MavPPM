@@ -167,6 +167,7 @@ CRC|2|Difference|16位CRC校验部分
 
 
 心跳包负载格式如下表所示：
+
 字段|长度（字节）|值域|作用
 ---|----------|----|---
 type|1|[0,255]|飞行器型号
@@ -176,12 +177,11 @@ custom_mode|4|4 bytes|当前用户定义模式
 system_status|1|[0,255]|系统状态
 mavlink_version|1|uint8_mavlink_version|MAVLink消息版本
 
-```
 【TODO】
 手动控制负载格式如下表所示：
+
 字段|长度（字节）|值域|作用
 ---|----------|----|---
-```
 
 ### PPM协议
 【reference PPM， wiki， 知网】
