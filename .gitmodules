@@ -22,3 +22,6 @@
 [submodule "Vendor/SocketKit"]
 	path = Vendor/SocketKit
 	url = https://github.com/CmST0us/SocketKit.git
+[submodule "Vendor/NSObjectSignals"]
+	path = Vendor/NSObjectSignals
+	url = https://github.com/CmST0us/NSObjectSignals.git
